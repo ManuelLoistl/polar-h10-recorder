@@ -1,5 +1,7 @@
 # Polar H10 Recorder
 
+[![tests](https://github.com/ManuelLoistl/polar-h10-recorder/actions/workflows/tests.yml/badge.svg)](https://github.com/ManuelLoistl/polar-h10-recorder/actions/workflows/tests.yml)
+
 Records raw data from a Polar H10 chest strap over Bluetooth LE into plain CSV files, one
 folder per session, so heart-rhythm analysis can be done later in a separate step. The
 app is driven from a small web page on localhost; nothing leaves the computer.
