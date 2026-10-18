@@ -1,0 +1,26 @@
+[project]
+name = "polar-recorder"
+version = "0.1.0"
+description = "Records raw ECG, accelerometer, HR and RR intervals from a Polar H10 to CSV"
+requires-python = ">=3.12,<3.13"
+license = "MIT"
+dependencies = [
+    "bleak>=3.0.2,<4",
+    "polar-python>=1.1.1,<2",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "websockets>=13",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "httpx>=0.27"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["polar_recorder"]

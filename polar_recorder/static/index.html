@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polar H10 Recorder</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%230f766e%22/%3E%3Cpolyline points=%226,36 18,36 23,36 27,22 32,50 37,14 42,36 47,36 58,36%22 fill=%22none%22 stroke=%22%23fff%22 stroke-width=%225%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --fg:#1f2937; --muted:#6b7280;
+    --accent:#0f766e; --accent-tint:#e6f6f3; --rec:#dc2626; --rec-tint:#fde2dc;
+    --warn:#d97706; --warn-tint:#fff4de; --s1:4px; --s2:8px; --s3:12px; --s4:16px;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:20px 24px 40px; font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color:var(--fg); background:var(--bg); max-width:1000px; }
+  .num { font-variant-numeric:tabular-nums; }
+  header { display:flex; align-items:baseline; justify-content:space-between; gap:var(--s4); margin-bottom:var(--s4); flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; font-weight:650; letter-spacing:-.01em; }
+  header .purpose { color:var(--muted); font-size:13px; }
+
+  .stepper { display:flex; align-items:center; margin-bottom:var(--s4); }
+  .step { display:flex; align-items:center; gap:var(--s2); color:var(--muted); white-space:nowrap; }
+  .step .c { width:20px; height:20px; border-radius:50%; border:2px solid #cbd1d8; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:var(--bg); }
+  .step.done { color:var(--fg); }
+  .step.done .c { background:var(--fg); border-color:var(--fg); color:#fff; }
+  .step.cur { color:var(--accent); font-weight:650; }
+  .step.cur .c { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 0 0 4px #d8f0ec; }
+  .stepline { flex:1; height:2px; background:var(--line); margin:0 var(--s3); }
+  .stepline.done { background:var(--fg); }
+
+  .banner { display:flex; gap:var(--s3); align-items:flex-start; padding:14px 16px; border-radius:10px; background:var(--card); border:1px solid var(--line); margin-bottom:var(--s3); }
+  .banner .dot { width:10px; height:10px; border-radius:50%; margin-top:6px; flex:none; background:#9ca3af; }
+  .banner .t { font-weight:650; font-size:15px; margin-bottom:2px; }
+  .banner .d { color:#4b5563; }
+  .banner.ok .dot { background:var(--accent); }
+  .banner.rec { background:#fff7f5; border-color:#f3c7bc; }
+  .banner.rec .dot { background:var(--rec); box-shadow:0 0 0 4px var(--rec-tint); }
+  .banner.warn { background:#fffbeb; border-color:#f5dea0; }
+  .banner.warn .dot { background:var(--warn); }
+
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:var(--s3); }
+  .card h2 { margin:0 0 10px; font-size:11px; font-weight:650; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+  .row { display:flex; gap:var(--s2); align-items:center; flex-wrap:wrap; }
+  .hint { color:var(--muted); font-size:12px; margin-top:var(--s2); }
+  .delErr:empty { display:none; }
+  .err { color:var(--warn); font-size:12px; margin-top:var(--s2); white-space:pre-wrap; }
+  button { font:inherit; font-weight:550; padding:7px 14px; border-radius:7px; border:1px solid #cbd1d8; background:var(--card); color:var(--fg); cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.stop { background:var(--card); border-color:var(--rec); color:var(--rec); }
+  button:disabled { opacity:.45; cursor:default; }
+  button.link { background:none; border:0; padding:0; color:var(--accent); text-decoration:underline; font-weight:500; }
+  input, select { font:inherit; padding:7px 10px; border:1px solid #cbd1d8; border-radius:7px; background:var(--card); min-width:220px; }
+
+  .big { display:flex; gap:var(--s3); margin-bottom:var(--s3); flex-wrap:wrap; }
+  .stat { flex:1; min-width:160px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 16px; }
+  .stat .k { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); font-weight:650; }
+  .stat .v { font-size:32px; font-weight:650; letter-spacing:-.02em; margin:2px 0; }
+  .stat .s { font-size:12px; color:var(--muted); }
+  .minis { display:grid; grid-template-columns:repeat(4, 1fr); gap:var(--s2); }
+  .mini { padding:8px 10px; border-radius:8px; background:var(--bg); }
+  .mini .k { font-size:11px; color:var(--muted); }
+  .mini .v { font-size:14px; font-weight:600; }
+  .mini.behind { background:var(--warn-tint); }
+  .mini.behind .v { color:var(--warn); }
+
+  .sess { border:1px solid var(--line); border-radius:8px; margin-bottom:var(--s2); background:var(--card); }
+  .sess .head { display:flex; justify-content:space-between; align-items:center; gap:var(--s2); padding:10px 12px; cursor:pointer; }
+  .sess .name { font-weight:600; }
+  .sess .sub { color:var(--muted); font-size:12px; margin-left:6px; }
+  .sess.open { border-color:var(--accent); }
+  .sess .body { padding:0 12px 12px; }
+  .pill { font-size:11px; padding:2px 8px; border-radius:999px; font-weight:600; white-space:nowrap; }
+  .pill.ok { background:var(--accent-tint); color:var(--accent); }
+  .pill.warn { background:var(--warn-tint); color:#b45309; }
+  .pill.open { background:#eef0f3; color:var(--muted); }
+  .info-i { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; margin-left:6px; border-radius:50%; border:1px solid #cbd1d8; color:var(--muted); font-size:10px; font-weight:600; font-style:normal; cursor:help; vertical-align:middle; position:relative; }
+  .info-i::after { content:attr(data-tip); display:none; position:absolute; left:0; top:20px; z-index:5; width:260px; padding:8px 10px; border-radius:8px; background:var(--card); border:1px solid var(--line); box-shadow:0 4px 14px rgba(0,0,0,.12); color:var(--fg); font-size:12px; font-weight:400; line-height:1.4; text-align:left; white-space:normal; cursor:default; }
+  .info-i:hover::after, .info-i:focus-visible::after, .info-i.open::after { display:block; }
+  table { width:100%; border-collapse:collapse; margin-top:var(--s2); font-size:13px; }
+  th { text-align:left; color:var(--muted); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--line); }
+  td { padding:6px 8px; border-bottom:1px solid #f0f2f4; }
+  td.r, th.r { text-align:right; }
+  canvas { width:100%; height:220px; border:1px solid #f3c7bc; border-radius:8px; background:var(--card); display:block; margin-top:var(--s2); }
+  canvas[hidden] { display:none; }
+  .pager[hidden] { display:none; }
+  .foot { display:flex; justify-content:space-between; align-items:center; gap:var(--s3); color:var(--muted); font-size:12px; margin-top:var(--s2); flex-wrap:wrap; }
+  .empty { color:var(--muted); font-size:13px; }
+  @media (max-width: 760px) { .minis { grid-template-columns:repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Polar H10 Recorder</h1>
+  <div class="purpose">Writes raw ECG, accelerometer, HR and RR to CSV, one folder per session</div>
+</header>
+<div class="stepper" id="stepper"></div>
+<div id="banner"></div>
+<div id="action"></div>
+<div id="live"></div>
+<div class="card" id="recordings">
+  <h2>Recordings</h2>
+  <div id="sessions"></div>
+  <div class="foot" id="folder"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let status = {};
+let lastKey = null;
+let sessions = [];
+let openId = null;
+const ui = {
+  scanning: false, scanDone: false, devices: [], connecting: false, connectingName: '',
+  saved: null, hadSession: false, sessionLabel: '', errors: {},
+  revealSupported: true, folderEditing: false, starting: false, stopping: false, startingSince: 0,
+};
+
+// ---------------------------------------------------------------- formatting
+const fmtInt = n => (n ?? 0).toLocaleString('en-US');
+function fmtElapsed(s) {
+  s = Math.floor(s || 0); const m = Math.floor(s / 60), sec = s % 60;
+  return `${Math.floor(m / 60) ? Math.floor(m / 60) + ':' : ''}${String(m % 60).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+const fmtLocal = iso => iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
+const fmtBytes = b => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : b >= 1024 ? Math.round(b / 1024) + ' KB' : (b || 0) + ' B';
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// ---------------------------------------------------------------- state
+function deriveState(st) {
+  if (ui.scanning) return 'scanning';
+  if (st.recording && !(ui.saved && ui.saved.session_id === st.session_id)) return st.connection === 'reconnecting' ? 'reconnecting' : 'recording';
+  if (st.connection === 'connecting' || ui.connecting) return 'connecting';
+  if (st.connection === 'connected' || st.connection === 'streaming') return ui.saved ? 'saved' : 'ready';
+  if (ui.scanDone && ui.devices.length === 0) return 'nostrap';
+  if (st.error && ui.hadSession) return 'failed';
+  if (ui.devices.length > 1) return 'choose';
+  if (st.error) return 'failed';
+  return 'idle';
+}
+
+const SIGNAL_INFO = {
+  ecg: "Electrocardiogram: the heart's electrical signal from the strap's electrodes, 130 samples per second, in microvolts.",
+  acc: 'Accelerometer: movement of the strap in three axes, 50 samples per second, in thousandths of g. Shows posture changes and motion artefacts.',
+  hr: 'Heart rate: beats per minute as the strap computes it, about once a second, with a sensor-contact flag.',
+  rr: "RR intervals: the time between consecutive heartbeats in milliseconds, from the strap's own beat detector. Used for heart-rate variability.",
+};
+const infoIcon = sig => `<span class="info-i" data-tip="${esc(SIGNAL_INFO[sig])}" tabindex="0">i</span>`;
+// Click toggles the explanation (hover and keyboard focus show it via CSS); a click anywhere else closes it.
+document.addEventListener('click', e => {
+  const hit = e.target.closest('.info-i');
+  document.querySelectorAll('.info-i.open').forEach(el => { if (el !== hit) el.classList.remove('open'); });
+  if (hit) hit.classList.toggle('open');
+});
+// Returns [verdict, reason]. Gap reasons stay in the Gaps column; a quality reason is still shown for gapped signals.
+function verdict(sig, v, q) {
+  if (sig === 'rr') return [null, ''];
+  let quality = '';
+  if (q) {
+    if (sig === 'ecg' && q.ecg_saturated_s >= 1) quality = `saturated ${q.ecg_saturated_s} s`;
+    else if (sig === 'hr') { const off = offBodySeconds(q); if (off > 0) quality = `off body ${off} s`; }
+  }
+  if (v.gap_count > 0) return ['check', quality];
+  const r = v.effective_rate_hz;
+  if (r == null) return ['check', 'no rate'];
+  const rateOk = sig === 'hr' ? (r >= 0.8 && r <= 1.2) : Math.abs(r - v.expected_rate_hz) / v.expected_rate_hz <= 0.02;
+  if (!rateOk) return ['check', 'rate'];
+  return quality ? ['check', quality] : ['ok', ''];
+}
+function offBodySeconds(q) {
+  return Math.round(Math.max(q.contact_lost_s >= 1 ? q.contact_lost_s : 0, q.rr_silence_s >= 5 ? q.rr_silence_s : 0));
+}
+function sessionPill(qa) {
+  if (!qa) return { cls: 'open', text: 'open' };
+  const gaps = Math.max(0, ...Object.values(qa.signals).map(v => v.gap_count));
+  if (gaps > 0) return { cls: 'warn', text: `${gaps} gap${gaps > 1 ? 's' : ''}` };
+  const allOk = Object.entries(qa.signals).every(([k, v]) => verdict(k, v, qa.quality)[0] === 'ok');
+  return allOk ? { cls: 'ok', text: 'clean' } : { cls: 'warn', text: 'check' };
+}
+function qualitySentence(qa) {
+  const q = qa && qa.quality; if (!q) return '';
+  const sat = q.ecg_saturated_s >= 1 ? q.ecg_saturated_s : 0, off = offBodySeconds(q);
+  if (sat && off) return `ECG saturated for ${sat} s and no beats for ${off} s: the strap was loose or off.`;
+  if (sat) return `ECG saturated for ${sat} s: the strap was loose or the electrodes dry.`;
+  if (off) return `No beats for ${off} s: the strap was off or had no contact.`;
+  return '';
+}
+// session_id is YYYY-MM-DD_HH-MM-SS[_label-slug]
+function idTime(sid) { return String(sid || '').split('_')[1]?.replace(/-/g, ':') || ''; }
+// "Recording 2026-10-18 13:15" from the local start time encoded in session_id
+function idDate(sid) { const [d, t] = String(sid || '').split('_'); return d && t ? `${d} ${t.slice(0, 5).replace('-', ':')}` : ''; }
+function displayName(label, sid) { return label ? esc(label) : `Recording ${idDate(sid)}`; }
+function gapSummary(qa) {
+  const sigs = Object.entries(qa.signals).filter(([, v]) => v.gap_count > 0);
+  if (!sigs.length) return '';
+  const n = Math.max(...sigs.map(([, v]) => v.gap_count));
+  const ecg = qa.signals.ecg;
+  const total = (ecg && ecg.gap_count > 0 ? ecg.gap_total_s : Math.max(...sigs.map(([, v]) => v.gap_total_s))).toFixed(1);
+  return `${n} Bluetooth gap${n > 1 ? 's' : ''} totalling ${total} s in ${sigs.map(([k]) => k.toUpperCase()).join(', ')}, logged in gaps.csv.`;
+}
+
+// ---------------------------------------------------------------- pieces
+function stepper(state) {
+  const cur = ['idle', 'scanning', 'nostrap', 'choose', 'connecting', 'failed'].includes(state) ? 1 : state === 'saved' ? 3 : 2;
+  const node = (n, label) => `<div class="step ${n < cur ? 'done' : n === cur ? 'cur' : ''}"><span class="c">${n < cur ? '✓' : n}</span>${label}</div>`;
+  const line = n => `<div class="stepline ${n < cur ? 'done' : ''}"></div>`;
+  return node(1, 'Connect') + line(1) + node(2, 'Record') + line(2) + node(3, 'Review');
+}
+
+function banner(state, st) {
+  const d = st.device || {};
+  switch (state) {
+    case 'idle': return ['', 'Not connected', 'Put the strap on with moistened electrodes, close Polar Flow or disconnect your watch, then press Scan. Needs H10 firmware 3.0.35 or newer for ECG.'];
+    case 'scanning': return ['', 'Scanning…', 'Looking for a Polar H10 nearby.'];
+    case 'nostrap': return ['warn', 'No strap found', esc(st.error || 'Nothing answered the scan.')];
+    case 'choose': return ['', `Found ${ui.devices.length} straps`, 'Pick yours and press Connect.'];
+    case 'connecting': return ['', `Connecting to ${esc(ui.connectingName || d.name || 'strap')}…`, 'A few seconds.'];
+    case 'ready': return ['ok', `Connected to ${esc(d.name || 'strap')}${d.address ? ` (${esc(d.address.slice(-5))})` : ''}`,
+      `Firmware ${esc(d.firmware ?? '?')}, battery ${d.battery_percent ?? '?'}%, ECG ${d.ecg_supported ? 'available' : 'not available'}. ${st.hr_bpm != null ? `Heart rate <span id="b-hr" class="num">${st.hr_bpm}</span> bpm. ` : ''}${ui.starting ? 'Starting…' : 'Press Start when you are ready.'} <button class="link" id="disconnect">Disconnect</button>`];
+    case 'recording': { const lbl = ui.sessionLabel || st.label;   // st.label covers a page loaded mid-recording
+      return ['rec', lbl ? `Recording · ${esc(lbl)}` : displayName('', st.session_id),
+      `Started ${esc(idTime(st.session_id))}. Add a marker when something happens, press Stop when done. If the strap drops out, the recorder reconnects on its own and logs the gap.`]; }
+    case 'reconnecting': return ['warn', `Strap dropped out, reconnecting (attempt <span id="b-attempt" class="num">${st.reconnect_attempt || 1}</span>)`,
+      'Keep the strap on. The gap is being logged; recording resumes by itself. Giving up after five minutes.'];
+    case 'saved': {
+      const s = ui.saved, g = gapSummary(s.qa), qs = qualitySentence(s.qa);
+      const tail = ui.starting ? 'Starting…' : 'Still connected: press Start for another session, or <button class="link" id="disconnect">Disconnect</button>.';
+      return [g || qs ? 'warn' : 'ok', `Saved · ${displayName(s.label, s.session_id)} · ${fmtElapsed(s.qa.duration_s)}`,
+        `${st.stopped_at_limit === s.session_id ? 'Stopped automatically at the one-hour limit. ' : ''}${g ? g + ' ' : ''}${qs ? qs + ' ' : ''}${tail}`];
+    }
+    case 'failed': return ['warn', ui.hadSession ? 'Recording stopped' : 'Something went wrong',
+      `${esc(st.error)} ${ui.hadSession ? 'Everything recorded so far is saved.' : 'Press Scan to try again.'}`];
+  }
+  return ['', '', ''];
+}
+
+function action(state, st) {
+  const err = k => ui.errors[k] ? `<div class="err">${esc(ui.errors[k])}</div>` : '';
+  switch (state) {
+    case 'idle': case 'nostrap': case 'failed':
+      return `<div class="card"><h2>Connect</h2><div class="row"><button class="primary" id="scan">Scan for strap</button><span class="hint" style="margin:0">Takes about 5 seconds.</span></div>${err('scan')}</div>`;
+    case 'scanning':
+      return `<div class="card"><h2>Connect</h2><div class="row"><button class="primary" disabled>Scanning…</button></div></div>`;
+    case 'choose':
+      return `<div class="card"><h2>Connect</h2><div class="row"><select id="devices">${ui.devices.map(d => `<option value="${esc(d.address)}">${esc(d.name)} (${esc(d.address.slice(0, 8))}…)</option>`).join('')}</select><button class="primary" id="connect">Connect</button></div>${err('connect')}</div>`;
+    case 'ready': case 'saved':
+      return `<div class="card"><h2>Record</h2><div class="row"><input id="label" placeholder="Session label (optional)" maxlength="60" style="flex:1;min-width:260px"><button class="primary" id="start" ${ui.starting ? 'disabled' : ''}>Start recording</button></div><div class="hint">A label such as morning-rest becomes part of the folder name. Sessions can run up to one hour. Files are flushed every second, so a crash loses at most a second.</div>${err('start')}${st.error ? `<div class="err">${esc(st.error)}</div>` : ''}</div>`;
+  }
+  return '';
+}
+
+function contactText(st) {
+  const base = st.contact === 1 ? 'bpm · contact good' : st.contact === 0 ? 'bpm · no contact' : 'bpm';
+  if (!beatsSilent()) return base;
+  return base === 'bpm' ? 'bpm · no beats' : base + ' · no beats';
+}
+const markerText = (st, dis) => dis ? 'no link' : `${st.markers ?? 0} marker${st.markers === 1 ? '' : 's'} so far · Enter also adds one`;
+const rateBuf = [];
+// True when RR intervals have arrived before but none in the last 5 s (the strap's own contact flag lags by ~9 s).
+function beatsSilent() {
+  const last = rateBuf[rateBuf.length - 1]; if (!last || !last.rr) return false;
+  const win = rateBuf.filter(x => x.t >= last.t - 5);
+  return win.length > 1 && win[0].t <= last.t - 4.5 && win.every(x => x.rr === last.rr);
+}
+function minisData(st) {
+  const e = st.elapsed_s || 0;
+  if (!st.recording) rateBuf.length = 0;
+  else if (!rateBuf.length || rateBuf[rateBuf.length - 1].t !== e) {
+    rateBuf.push({ t: e, ecg: st.ecg_samples || 0, acc: st.acc_samples || 0, hr: st.hr_samples || 0, rr: st.rr_samples || 0 });
+    while (rateBuf.length > 1 && rateBuf[0].t < e - 10) rateBuf.shift();
+  }
+  const first = rateBuf[0], last = rateBuf[rateBuf.length - 1];
+  const span = first ? last.t - first.t : 0, settled = span >= 8;
+  const rate = (n, k) => span > 0 ? (last[k] - first[k]) / span : e > 0 ? (n || 0) / e : 0;
+  // Loose on purpose: 73-sample ECG and 36-sample ACC frames make the 10 s window swing, so only a stall should turn amber. Judged per signal: a signal's baseline counts only once the oldest snapshot already had samples for it (ECG starts about 6 s after Start), otherwise the first window under-reads.
+  const ok = k => settled && first[k] > 0;
+  const behind = (r, exp, k, lo, hi) => ok(k) && (lo != null ? (r < lo || r > hi) : r < exp * 0.85);
+  const tile = (id, label, value, bad) => ({ id, label, value, bad });
+  const re = rate(st.ecg_samples, 'ecg'), ra = rate(st.acc_samples, 'acc'), rh = rate(st.hr_samples, 'hr');
+  const hz = (k, r, d) => ok(k) ? ` · ${r.toFixed(d)} Hz` : '';
+  const satNow = !!st.ecg_saturated_now, satS = st.ecg_saturated_s || 0;
+  return [tile('ecg', `ECG samples${satNow ? ' · saturated' : ''}${infoIcon('ecg')}`, `${fmtInt(st.ecg_samples)}${hz('ecg', re, 1)}${satS ? ` · saturated ${satS} s` : ''}`, behind(re, 130, 'ecg') || satNow),
+          tile('acc', `ACC samples${infoIcon('acc')}`, `${fmtInt(st.acc_samples)}${hz('acc', ra, 1)}`, behind(ra, 50, 'acc')),
+          tile('hr', `HR packets / RR${infoIcon('hr')}${infoIcon('rr')}`, `${fmtInt(st.hr_samples)} / ${fmtInt(st.rr_samples)}${hz('hr', rh, 2)}`, behind(rh, 1, 'hr', 0.5, 1.5)),
+          tile('gaps', 'Gaps', fmtInt(st.gaps), (st.gaps || 0) > 0)];
+}
+function live(state, st) {
+  const dis = state === 'reconnecting';
+  const tiles = minisData(st).map(t => `<div class="mini ${t.bad ? 'behind' : ''}" id="mini-${t.id}"><div class="k">${t.label}</div><div class="v num">${t.value}</div></div>`).join('');
+  return `<div class="big">
+    <div class="stat"><div class="k">Elapsed</div><div class="v num" id="l-elapsed">${fmtElapsed(st.elapsed_s)}</div><div class="s">mm:ss · of 60:00 max</div></div>
+    <div class="stat"><div class="k">Heart rate</div><div class="v num" id="l-hr">${st.hr_bpm ?? '–'}</div><div class="s" id="l-contact">${contactText(st)}</div></div>
+    <div class="stat" style="flex:1.6"><div class="k">Marker</div><div class="row" style="margin-top:6px"><input id="note" placeholder="e.g. palpitations" ${dis ? 'disabled' : ''} style="min-width:180px;flex:1"><button id="marker" ${dis ? 'disabled' : ''}>Add marker</button></div><div class="s" style="margin-top:6px" id="l-markers">${markerText(st, dis)}</div>${ui.errors.marker ? `<div class="err">${esc(ui.errors.marker)}</div>` : ''}</div>
+  </div>
+  <div class="card"><div class="minis" id="minis">${tiles}</div><div class="row" style="margin-top:12px"><button class="stop" id="stop" ${ui.stopping ? 'disabled' : ''}>${ui.stopping ? 'Stopping…' : 'Stop recording'}</button></div>${ui.errors.stop ? `<div class="err">${esc(ui.errors.stop)}</div>` : ''}</div>`;
+}
+
+// ---------------------------------------------------------------- render
+let prevRecording = false, prevSessionId = null, prevState = null;
+function render() {
+  const st = status;
+  if (prevRecording && !st.recording && !(ui.saved && ui.saved.session_id === prevSessionId)) loadSessions(prevSessionId);
+  prevRecording = !!st.recording; prevSessionId = st.session_id;
+  if (st.connection && st.connection !== 'disconnected' && st.connection !== 'reconnect_failed') ui.connecting = false;
+  if (st.recording) ui.hadSession = true;
+  if (ui.starting && (st.recording || Date.now() - ui.startingSince > REQUEST_TIMEOUT_MS)) ui.starting = false;
+  const state = deriveState(st);
+  if (state !== prevState) { prevState = state; ui.errors = {}; }
+  const key = [state, st.session_id, st.device && st.device.address, st.error, ui.devices.length,
+               ui.saved && ui.saved.session_id, st.output_dir, st.recording, JSON.stringify(ui.errors), st.hr_bpm == null, ui.starting, ui.stopping].join('|');
+  if (key !== lastKey) { lastKey = key; renderStatic(state, st); }
+  renderLive(state, st);
+}
+function renderStatic(state, st) {
+  const keep = ['label', 'note'].map(id => {
+    const el = $(id);
+    return el && { id, value: el.value, focus: document.activeElement === el, start: el.selectionStart, end: el.selectionEnd };
+  }).filter(Boolean);
+  $('stepper').innerHTML = stepper(state);
+  const [cls, t, d] = banner(state, st);
+  $('banner').innerHTML = `<div class="banner ${cls}"><div class="dot"></div><div><div class="t">${t}</div><div class="d">${d}</div></div></div>`;
+  $('action').innerHTML = action(state, st);
+  $('live').innerHTML = (state === 'recording' || state === 'reconnecting') ? live(state, st) : '';
+  keep.forEach(k => {
+    const el = $(k.id); if (!el) return;
+    el.value = k.value;
+    if (k.focus) { el.focus(); try { el.setSelectionRange(k.start, k.end); } catch (e) {} }
+  });
+  bind();
+  renderFolder();
+}
+function renderLive(state, st) {
+  const set = (id, v) => { const el = $(id); if (el && el.textContent !== v) el.textContent = v; };
+  set('b-hr', String(st.hr_bpm ?? '–'));
+  set('b-attempt', String(st.reconnect_attempt || 1));
+  set('l-elapsed', fmtElapsed(st.elapsed_s));
+  set('l-hr', String(st.hr_bpm ?? '–'));
+  const tiles = minisData(st);
+  set('l-contact', contactText(st));
+  set('l-markers', markerText(st, state === 'reconnecting'));
+  tiles.forEach(t => {
+    const el = $('mini-' + t.id); if (!el) return;
+    const k = el.querySelector('.k'), v = el.querySelector('.v');
+    if (v.textContent !== t.value) v.textContent = t.value;
+    el.classList.toggle('behind', !!t.bad);
+    if (k.dataset.label !== t.label) { k.innerHTML = t.label; k.dataset.label = t.label; }   // not innerHTML: an open info popover must survive ticks
+  });
+}
+function bind() {
+  const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
+  on('scan', scan);
+  on('connect', () => connect($('devices').value));
+  on('disconnect', disconnect);
+  on('start', start);
+  on('stop', stop);
+  on('marker', addMarker);
+  const note = $('note'); if (note) note.addEventListener('keydown', e => { if (e.key === 'Enter') addMarker(); });
+  const label = $('label'); if (label) label.addEventListener('keydown', e => { if (e.key === 'Enter') start(); });
+}
+
+// ---------------------------------------------------------------- api + actions
+const REQUEST_TIMEOUT_MS = 15000;
+const timeoutMsg = timeoutMs => `No answer from the recorder after ${Math.round(timeoutMs / 1000)} s. Reload the page if this persists.`;
+async function api(method, path, body, control, timeoutMs = REQUEST_TIMEOUT_MS) {
+  if (control) delete ui.errors[control];
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
+  let r;
+  try {
+    r = await fetch(path, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined, signal: ctl.signal });
+  } catch (e) {
+    clearTimeout(timer);
+    const msg = e.name === 'AbortError' ? timeoutMsg(timeoutMs) : `Request failed: ${e.message}`;
+    if (control) { ui.errors[control] = msg; render(); }
+    throw new Error(msg);
+  }
+  clearTimeout(timer);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const msg = data.detail || r.statusText;
+    if (control) { ui.errors[control] = msg; render(); }
+    throw new Error(msg);
+  }
+  return data;
+}
+async function scan() {
+  Object.assign(ui, { scanning: true, scanDone: false, devices: [], saved: null, hadSession: false, errors: {} });
+  render();
+  try { ui.devices = (await api('POST', '/api/scan')).devices; } catch (e) { /* server put the reason in status.error */ }
+  ui.scanDone = true; ui.scanning = false; render();
+  if (ui.devices.length === 1) connect(ui.devices[0].address);
+}
+async function connect(address) {
+  ui.connecting = true; ui.connectingName = (ui.devices.find(d => d.address === address) || {}).name || ''; render();
+  try { await api('POST', '/api/connect', { address }, ui.devices.length > 1 ? 'connect' : undefined, 40000); }
+  catch (e) { ui.connecting = false; render(); }
+}
+async function disconnect() {
+  try { await api('POST', '/api/disconnect'); Object.assign(ui, { saved: null, devices: [], scanDone: false }); render(); } catch (e) {}
+}
+async function start() {
+  if (ui.starting) return;
+  const label = ($('label') || {}).value || '';
+  ui.starting = true; ui.startingSince = Date.now(); render();
+  try {
+    await api('POST', '/api/start', { label }, 'start');
+    rateBuf.length = 0;
+    Object.assign(ui, { saved: null, hadSession: true, sessionLabel: label.trim() });
+  } catch (e) {}
+  ui.starting = false; render();
+}
+async function stop() {
+  if (ui.stopping) return;
+  const sid = status.session_id, label = ui.sessionLabel || status.label || '';
+  ui.stopping = true; render();
+  try {
+    const qa = await api('POST', '/api/stop', null, 'stop', 30000);
+    ui.saved = { qa, session_id: sid, label };
+    loadSessions(sid);
+  } catch (e) {}
+  ui.stopping = false; render();
+}
+async function addMarker() {
+  const el = $('note'); if (!el || el.disabled) return;
+  try { await api('POST', '/api/marker', { note: el.value }, 'marker'); el.value = ''; } catch (e) {}
+}
+
+// ---------------------------------------------------------------- recordings
+async function loadSessions(expandId) {
+  try { sessions = await (await fetch('/api/sessions')).json(); } catch (e) { return; }
+  if (expandId) openId = expandId;
+  renderSessions();
+}
+let delRevertTimer = null;   // one pending delete confirmation at most
+function renderSessions() {
+  clearTimeout(delRevertTimer);
+  const box = $('sessions'); box.innerHTML = '';
+  if (!sessions.length) { box.innerHTML = '<div class="empty">No recordings yet. The first session appears here after you press Stop.</div>'; return; }
+  for (const m of sessions) {
+    const open = m.session_id === openId;
+    const pill = sessionPill(m.qa);
+    const el = document.createElement('div'); el.className = 'sess' + (open ? ' open' : '');
+    const sub = [fmtLocal(m.start_time_utc), m.qa ? 'duration ' + fmtElapsed(m.qa.duration_s) + ' (mm:ss)' : 'still open', `battery ${m.battery_percent_at_start ?? '?'}%`, m.device && m.device.hardware === 'fake' ? 'simulated' : ''].filter(Boolean).join(' · ');
+    el.innerHTML = `<div class="head"><div><span class="name">${displayName(m.label, m.session_id)}</span><span class="sub">${sub}</span></div><span class="pill ${pill.cls}">${pill.text}</span></div>${open ? sessionBody(m) : ''}`;
+    el.querySelector('.head').onclick = () => { openId = open ? null : m.session_id; renderSessions(); };
+    if (open) wireBody(el, m);
+    box.appendChild(el);
+  }
+}
+function sessionBody(m) {
+  const qa = m.qa;
+  const rows = qa ? Object.entries(qa.signals).map(([k, v]) => {
+    const [vd, why] = verdict(k, v, qa.quality);
+    return `<tr><td>${k.toUpperCase()}${infoIcon(k)}</td><td class="r num">${fmtInt(v.sample_count)}</td><td class="r num">${v.expected_rate_hz} Hz</td><td class="r num">${v.effective_rate_hz == null ? '–' : v.effective_rate_hz.toFixed(1) + ' Hz'}</td><td class="r num">${v.gap_count}${v.gap_count ? ' · ' + v.gap_total_s.toFixed(1) + ' s' : ''}</td><td class="r">${vd ? `<span class="pill ${vd === 'ok' ? 'ok' : 'warn'}">${vd}</span>` : ''}</td><td class="hint" style="margin:0">${why}</td></tr>`;
+  }).join('') + `<tr><td>RR${infoIcon('rr')}</td><td class="r num">${fmtInt(qa.rr_count)}</td><td></td><td></td><td></td><td></td><td></td></tr>` : '';
+  const ms = m.markers || [];
+  const maxStart = qa ? Math.max(0, Math.floor(qa.duration_s - 10)) : null;
+  const markers = ms.length
+    ? `<div class="markers">${ms.map((x, i) => `<div class="row" style="justify-content:space-between;padding:4px 0;border-bottom:1px solid #f0f2f4"><span class="num">${fmtElapsed(x.offset_s)} · ${esc(x.note) || '(no note)'}</span><button class="link showMk" data-i="${i}">Show ECG</button></div>`).join('')}</div>`
+    : '<div class="hint">No markers.</div>';
+  return `<div class="body">
+    <div class="hint" style="margin-top:0">Firmware ${esc(m.device && m.device.firmware || '?')} · ${m.end_time_utc ? 'ended ' + fmtLocal(m.end_time_utc) : 'still open or aborted'}</div>
+    ${qa ? `<table><tr><th>Signal</th><th class="r">Samples</th><th class="r">Expected</th><th class="r">Effective</th><th class="r">Gaps</th><th></th><th>Reason</th></tr>${rows}</table>` : '<div class="hint">No QA summary: the session is still recording or was aborted.</div>'}
+    ${markers}
+    <div class="row" style="margin-top:10px"><span class="hint" style="margin:0">ECG excerpt from second${qa ? ` (0 to ${maxStart})` : ''}</span><input type="number" class="startS" value="0" min="0"${qa ? ` max="${maxStart}"` : ''} step="1" style="min-width:90px"><button class="load">Show 10 s</button><span class="hint info" style="margin:0"></span></div>
+    <canvas hidden></canvas>
+    <div class="row pager" hidden style="justify-content:space-between;margin-top:6px"><button class="prev">‹ Previous 10 s</button><span class="hint range" style="margin:0"></span><button class="next">Next 10 s ›</button></div>
+    <div class="foot" id="foot-${esc(m.session_id)}"><span>${esc(m.session_id)}/ · ecg.csv ${fmtBytes(m.ecg_bytes)}</span><span class="row" style="gap:12px">${ui.revealSupported ? '<button class="link reveal">Show in Finder</button><span class="hint revealErr" style="margin:0"></span>' : ''}<button class="link del" style="color:var(--muted)">Delete</button></span></div>
+    <div class="err delErr"></div>
+  </div>`;
+}
+function wireBody(el, m) {
+  const canvas = el.querySelector('canvas');
+  const maxStart = m.qa ? Math.max(0, Math.floor(m.qa.duration_s - 10)) : Infinity;   // no QA: duration unknown
+  const info = el.querySelector('.info'), startInput = el.querySelector('.startS');
+  const pager = el.querySelector('.pager'), prev = el.querySelector('.prev'), next = el.querySelector('.next'), range = el.querySelector('.range');
+  const duration = m.qa ? Math.round(m.qa.duration_s) : 0;
+  let shownStart = null;
+  async function loadWindow(start, scroll = false) {
+    info.textContent = 'loading…';
+    try {
+      const { samples } = await (await fetch(`/api/sessions/${encodeURIComponent(m.session_id)}/ecg?start_s=${start}&seconds=10`)).json();
+      canvas.hidden = false; drawEcg(canvas, samples, start, 10, m.markers || []);
+      if (scroll) canvas.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      info.textContent = `${samples.length} samples`;
+      shownStart = start; startInput.value = start;
+      pager.hidden = false;
+      range.textContent = m.qa ? `${start} to ${Math.min(start + 10, duration)} s of ${duration} s` : `${start} to ${start + 10} s`;
+      prev.disabled = start <= 0; next.disabled = start >= maxStart;
+    } catch (e) { info.textContent = 'failed'; }
+  }
+  prev.onclick = () => { if (shownStart != null) loadWindow(Math.max(0, shownStart - 10)); };
+  next.onclick = () => { if (shownStart != null) loadWindow(Math.min(maxStart, shownStart + 10)); };
+  el.querySelector('.load').onclick = () => {
+    const raw = startInput.value, start = Number(raw);
+    if (raw === '' || !Number.isInteger(start) || start < 0 || start > maxStart) {
+      info.textContent = m.qa ? `Enter a second between 0 and ${maxStart}.` : 'Enter a whole number of seconds, 0 or more.'; return;
+    }
+    loadWindow(start);
+  };
+  el.querySelectorAll('.showMk').forEach(btn => btn.onclick = () => {
+    const mk = (m.markers || [])[Number(btn.dataset.i)]; if (!mk) return;
+    const start = Math.min(maxStart, Math.max(0, Math.round(mk.offset_s - 5)));
+    startInput.value = start;
+    loadWindow(start, true);
+  });
+  const reveal = el.querySelector('.reveal');
+  if (reveal) reveal.onclick = async () => {
+    const err = el.querySelector('.revealErr'); err.textContent = '';
+    try {
+      const r = await fetch(`/api/sessions/${encodeURIComponent(m.session_id)}/reveal`, { method: 'POST' });
+      if (r.status === 501) { ui.revealSupported = false; renderSessions(); }
+      else if (!r.ok) err.textContent = 'Could not open Finder';
+    } catch (e) { err.textContent = 'Could not open Finder'; }
+  };
+  const foot = el.querySelector('.foot');
+  const revert = () => renderSessions();
+  const showDelErr = message => {
+    const fresh = document.getElementById('foot-' + m.session_id);
+    const out = fresh && fresh.parentElement.querySelector('.delErr');
+    if (out) out.textContent = message;
+  };
+  el.querySelector('.del').onclick = () => {
+    foot.innerHTML = `<div class="banner warn" style="margin:0;width:100%"><div class="dot"></div><div><div class="t">Delete this recording?</div><div class="d">The folder ${esc(m.session_id)} and all its files are removed from disk. This cannot be undone.</div><div class="row" style="margin-top:8px"><button class="stop confirmDel">Delete permanently</button><button class="cancelDel">Cancel</button></div></div></div>`;
+    delRevertTimer = setTimeout(revert, 10000);
+    foot.querySelector('.cancelDel').onclick = revert;
+    foot.querySelector('.confirmDel').onclick = async () => {
+      clearTimeout(delRevertTimer);
+      try {
+        const r = await fetch(`/api/sessions/${encodeURIComponent(m.session_id)}`, { method: 'DELETE' });
+        if (!r.ok) { const data = await r.json().catch(() => ({})); throw new Error(data.detail || r.statusText); }
+        if (ui.saved && ui.saved.session_id === m.session_id) { ui.saved = null; render(); }
+        if (openId === m.session_id) openId = null;
+        loadSessions();
+      } catch (e) { openId = m.session_id; renderSessions(); showDelErr(`Could not delete: ${e.message}`); }
+    };
+  };
+}
+function renderFolder() {
+  const f = $('folder'); const dir = status.output_dir || '';
+  if (status.recording) { f.innerHTML = `<span>Saving to ${esc(dir)}</span>`; return; }
+  if (ui.folderEditing && $('outdir')) return;
+  if (ui.folderEditing) {
+    f.innerHTML = `<div class="row" style="width:100%"><input id="outdir" style="flex:1;min-width:280px" value="${esc(dir)}"><button class="primary" id="saveDir">Save</button><button id="cancelDir">Cancel</button></div><div class="err" id="dirErr"></div>`;
+    $('saveDir').onclick = async () => {
+      try { await api('POST', '/api/settings', { output_dir: $('outdir').value }); ui.folderEditing = false; loadSessions(); renderFolder(); }
+      catch (e) { $('dirErr').textContent = e.message; }
+    };
+    $('cancelDir').onclick = () => { ui.folderEditing = false; renderFolder(); };
+    return;
+  }
+  f.innerHTML = `<span>Saved to ${esc(dir)}</span><button class="link" id="changeDir">Change folder</button>`;
+  $('changeDir').onclick = () => { ui.folderEditing = true; renderFolder(); };
+}
+
+// ---------------------------------------------------------------- excerpt drawing (unchanged logic)
+function drawEcg(canvas, samples, start, seconds, markers = []) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = 220;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+  const padL = 48, padR = 8, padT = 8, padB = 22;
+  const pw = W - padL - padR, ph = H - padT - padB;
+  let lo = -1000, hi = 1000;
+  if (samples.length) { lo = Math.min(...samples.map(s => s[1])); hi = Math.max(...samples.map(s => s[1])); const m = (hi - lo) * 0.1 || 100; lo -= m; hi += m; }
+  const x = t => padL + (t - start) / seconds * pw;
+  const y = v => padT + (hi - v) / (hi - lo) * ph;
+  ctx.lineWidth = 1;
+  for (let t = 0; t <= seconds + 1e-9; t += 0.04) {
+    const major = Math.round(t * 1000) % 200 === 0;
+    ctx.strokeStyle = major ? '#f2b5b5' : '#fbe3e3';
+    ctx.beginPath(); ctx.moveTo(x(start + t), padT); ctx.lineTo(x(start + t), padT + ph); ctx.stroke();
+  }
+  const stepUv = niceStep((hi - lo) / 6);
+  ctx.fillStyle = '#6b7280'; ctx.font = '11px system-ui'; ctx.textAlign = 'right';
+  for (let v = Math.ceil(lo / stepUv) * stepUv; v <= hi; v += stepUv) {
+    ctx.strokeStyle = '#f2b5b5'; ctx.beginPath(); ctx.moveTo(padL, y(v)); ctx.lineTo(padL + pw, y(v)); ctx.stroke();
+    ctx.fillText(v + ' µV', padL - 4, y(v) + 4);
+  }
+  ctx.textAlign = 'center';
+  for (let t = 0; t <= seconds; t += 1) ctx.fillText((start + t).toFixed(0) + ' s', x(start + t), H - 6);
+  ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 1.2; ctx.beginPath();
+  samples.forEach((s, i) => { const px = x(s[0]), py = y(s[1]); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
+  ctx.stroke();
+  ctx.save();
+  ctx.font = '11px system-ui';
+  for (const mk of markers.filter(k => k.offset_s >= start && k.offset_s <= start + seconds)) {
+    const px = x(mk.offset_s);
+    ctx.strokeStyle = '#0f766e'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, padT + ph); ctx.stroke();
+    ctx.setLineDash([]);
+    const label = (mk.note || 'marker').slice(0, 24);
+    const w = ctx.measureText(label).width + 8, h = 16;
+    const bx = Math.min(Math.max(px - w / 2, padL), padL + pw - w), by = padT + ph - h - 2;
+    ctx.fillStyle = '#e6f6f3'; ctx.fillRect(bx, by, w, h);
+    ctx.fillStyle = '#0f766e'; ctx.textAlign = 'center'; ctx.fillText(label, bx + w / 2, by + 12);
+  }
+  ctx.restore();
+  if (!samples.length) { ctx.fillStyle = '#dc2626'; ctx.fillText('no ECG samples in this window', W / 2, H / 2); }
+}
+function niceStep(raw) { const p = Math.pow(10, Math.floor(Math.log10(raw))); const f = raw / p; return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p; }
+
+// ---------------------------------------------------------------- live status: websocket with polling fallback
+function connectWs() {
+  let ws, opened = false;
+  try { ws = new WebSocket(`ws://${location.host}/ws`); } catch (e) { return poll(); }
+  ws.onopen = () => { opened = true; };
+  ws.onmessage = ev => { status = JSON.parse(ev.data); render(); };
+  ws.onclose = () => { if (opened) setTimeout(connectWs, 2000); else poll(); };
+  ws.onerror = () => ws.close();
+}
+async function poll() {
+  try { status = await (await fetch('/api/status')).json(); render(); } catch (e) {}
+  setTimeout(poll, 1000);
+}
+
+render();
+connectWs();
+loadSessions();
+</script>
+</body>
+</html>
